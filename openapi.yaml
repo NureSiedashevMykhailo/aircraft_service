@@ -1,0 +1,554 @@
+openapi: 3.0.3
+info:
+  title: Aircraft Monitoring System API
+  description: |
+    RESTful API for aircraft technical condition monitoring system.
+    
+    API provides the following capabilities:
+    - Receive and store telemetry data
+    - Get aircraft information
+    - Manage maintenance schedules
+    - Work with alerts and notifications
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@aircraft-monitoring.local
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+  - url: https://api.aircraft-monitoring.example.com/api
+    description: Production server
+
+tags:
+  - name: Telemetry
+    description: Telemetry data operations
+  - name: Aircrafts
+    description: Aircraft information
+  - name: Maintenance
+    description: Maintenance management
+  - name: Alerts
+    description: Alerts and notifications
+
+paths:
+  /telemetry:
+    post:
+      tags:
+        - Telemetry
+      summary: Create telemetry record(s)
+      description: |
+        Accepts a single telemetry record or an array of records for batch insertion.
+        Supports up to 1000 records in a single request.
+      operationId: createTelemetry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/TelemetryRecord'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/TelemetryRecord'
+                  maxItems: 1000
+            examples:
+              single:
+                summary: Single record
+                value:
+                  time: "2024-01-15T10:30:00Z"
+                  aircraft_id: 1
+                  parameter_name: "engine_temperature"
+                  value: 85.5
+              batch:
+                summary: Batch records
+                value:
+                  - time: "2024-01-15T10:30:00Z"
+                    aircraft_id: 1
+                    parameter_name: "engine_temperature"
+                    value: 85.5
+                  - time: "2024-01-15T10:30:01Z"
+                    aircraft_id: 1
+                    parameter_name: "fuel_level"
+                    value: 75.2
+      responses:
+        '201':
+          description: Record(s) successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /aircrafts/{id}:
+    get:
+      tags:
+        - Aircrafts
+      summary: Get aircraft information
+      description: |
+        Returns full aircraft information by ID, including:
+        - Basic aircraft data
+        - Component list
+        - Active alerts (up to 10 latest)
+        - Upcoming maintenance schedules (up to 5 nearest)
+      operationId: getAircraftById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Aircraft ID
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Aircraft information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AircraftDetailResponse'
+        '400':
+          description: Invalid aircraft ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Aircraft not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /maintenance:
+    post:
+      tags:
+        - Maintenance
+      summary: Create maintenance schedule or task
+      description: |
+        Creates either a maintenance schedule or a maintenance task.
+        Request body must contain either "schedule" or "task" object.
+      operationId: createMaintenance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required:
+                    - schedule
+                  properties:
+                    schedule:
+                      $ref: '#/components/schemas/MaintenanceScheduleInput'
+                - type: object
+                  required:
+                    - task
+                  properties:
+                    task:
+                      $ref: '#/components/schemas/MaintenanceTaskInput'
+            examples:
+              schedule:
+                summary: Create maintenance schedule
+                value:
+                  schedule:
+                    aircraft_id: 1
+                    scheduled_date: "2024-02-15"
+                    description: "Planned engine maintenance"
+                    status: "pending"
+                    is_predicted: false
+              task:
+                summary: Create maintenance task
+                value:
+                  task:
+                    schedule_id: 1
+                    assigned_user_id: 2
+                    description: "Check cooling system"
+      responses:
+        '201':
+          description: Schedule/task successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceResponse'
+        '400':
+          description: Validation error or missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Aircraft, schedule or user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /alerts/{aircraftId}:
+    get:
+      tags:
+        - Alerts
+      summary: Get aircraft alerts
+      description: |
+        Returns list of alerts for specified aircraft.
+        By default, only unacknowledged alerts are returned.
+      operationId: getAircraftAlerts
+      parameters:
+        - name: aircraftId
+          in: path
+          required: true
+          description: Aircraft ID
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+        - name: include_acknowledged
+          in: query
+          required: false
+          description: Include acknowledged alerts
+          schema:
+            type: boolean
+            default: false
+          example: false
+        - name: severity
+          in: query
+          required: false
+          description: Filter by severity level
+          schema:
+            type: string
+            enum: [info, warning, critical]
+          example: critical
+      responses:
+        '200':
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertsResponse'
+        '400':
+          description: Invalid aircraft ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    TelemetryRecord:
+      type: object
+      required:
+        - time
+        - aircraft_id
+        - parameter_name
+        - value
+      properties:
+        time:
+          type: string
+          format: date-time
+          description: Record timestamp
+          example: "2024-01-15T10:30:00Z"
+        aircraft_id:
+          type: integer
+          minimum: 1
+          description: Aircraft ID
+          example: 1
+        parameter_name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Telemetry parameter name
+          example: "engine_temperature"
+        value:
+          type: number
+          description: Parameter value
+          example: 85.5
+
+    TelemetryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Telemetry record created"
+        data:
+          $ref: '#/components/schemas/TelemetryRecord'
+        count:
+          type: integer
+          description: Number of created records (for batch insert)
+          example: 1
+
+    Aircraft:
+      type: object
+      properties:
+        aircraft_id:
+          type: integer
+          example: 1
+        reg_number:
+          type: string
+          example: "RA-12345"
+        model:
+          type: string
+          example: "Boeing 737-800"
+        manufacture_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2015-06-15"
+        total_flight_hours:
+          type: number
+          format: double
+          example: 12500.5
+        last_maintenance_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2024-01-10"
+
+    Component:
+      type: object
+      properties:
+        component_id:
+          type: integer
+          example: 1
+        aircraft_id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Left Engine"
+        serial_number:
+          type: string
+          nullable: true
+          example: "ENG-L-001"
+        installed_at:
+          type: string
+          format: date
+          example: "2020-01-15"
+        life_limit_hours:
+          type: number
+          format: double
+          example: 20000.0
+        current_wear_hours:
+          type: number
+          format: double
+          example: 15000.0
+
+    Alert:
+      type: object
+      properties:
+        alert_id:
+          type: integer
+          example: 1
+        aircraft_id:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        severity:
+          type: string
+          enum: [info, warning, critical]
+          example: "warning"
+        message:
+          type: string
+          example: "Engine temperature exceeds normal range"
+        is_acknowledged:
+          type: boolean
+          example: false
+
+    MaintenanceSchedule:
+      type: object
+      properties:
+        schedule_id:
+          type: integer
+          example: 1
+        aircraft_id:
+          type: integer
+          example: 1
+        scheduled_date:
+          type: string
+          format: date
+          example: "2024-02-15"
+        description:
+          type: string
+          nullable: true
+          example: "Planned maintenance"
+        status:
+          type: string
+          enum: [pending, in_progress, completed, cancelled]
+          example: "pending"
+        is_predicted:
+          type: boolean
+          example: false
+
+    MaintenanceTask:
+      type: object
+      properties:
+        task_id:
+          type: integer
+          example: 1
+        schedule_id:
+          type: integer
+          example: 1
+        assigned_user_id:
+          type: integer
+          nullable: true
+          example: 2
+        description:
+          type: string
+          example: "Check cooling system"
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        is_completed:
+          type: boolean
+          example: false
+
+    MaintenanceScheduleInput:
+      type: object
+      required:
+        - aircraft_id
+        - scheduled_date
+      properties:
+        aircraft_id:
+          type: integer
+          minimum: 1
+          example: 1
+        scheduled_date:
+          type: string
+          format: date
+          example: "2024-02-15"
+        description:
+          type: string
+          example: "Planned maintenance"
+        status:
+          type: string
+          enum: [pending, in_progress, completed, cancelled]
+          default: pending
+          example: "pending"
+        is_predicted:
+          type: boolean
+          default: false
+          example: false
+
+    MaintenanceTaskInput:
+      type: object
+      required:
+        - schedule_id
+        - description
+      properties:
+        schedule_id:
+          type: integer
+          minimum: 1
+          example: 1
+        assigned_user_id:
+          type: integer
+          minimum: 1
+          example: 2
+        description:
+          type: string
+          minLength: 1
+          example: "Check cooling system"
+
+    AircraftDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/Aircraft'
+            - type: object
+              properties:
+                components:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Component'
+                alerts:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Alert'
+                maintenanceSchedules:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/MaintenanceSchedule'
+
+    MaintenanceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Maintenance schedule created"
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/MaintenanceSchedule'
+            - $ref: '#/components/schemas/MaintenanceTask'
+
+    AlertsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alert'
+        count:
+          type: integer
+          example: 5
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "Validation error"
+        details:
+          type: array
+          items:
+            type: object
+          description: Validation error details (optional)
+

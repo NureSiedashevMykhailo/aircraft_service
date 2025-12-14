@@ -1,0 +1,133 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Seed script configuration
+// Run with: npm run db:seed
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  engineer
+  technician
+  operator
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  completed
+  cancelled
+}
+
+enum AlertSeverity {
+  info
+  warning
+  critical
+}
+
+model User {
+  user_id        Int       @id @default(autoincrement())
+  email          String    @unique @db.VarChar(100)
+  full_name      String    @db.VarChar(100)
+  password_hash  String    @db.VarChar(255)
+  role           UserRole  @default(engineer)
+  created_at     DateTime  @default(now()) @db.Timestamp(6)
+  
+  maintenanceTasks MaintenanceTask[]
+  
+  @@map("users")
+}
+
+model Aircraft {
+  aircraft_id           Int       @id @default(autoincrement())
+  reg_number            String    @unique @db.VarChar(20)
+  model                 String    @db.VarChar(50)
+  manufacture_date      DateTime? @db.Date
+  total_flight_hours    Float     @default(0.0) @db.DoublePrecision
+  last_maintenance_date DateTime? @db.Date
+  
+  components          Component[]
+  telemetry          Telemetry[]
+  alerts             Alert[]
+  maintenanceSchedules MaintenanceSchedule[]
+  
+  @@map("aircrafts")
+}
+
+model Component {
+  component_id       Int      @id @default(autoincrement())
+  aircraft_id       Int
+  name              String   @db.VarChar(100)
+  serial_number     String?  @db.VarChar(50)
+  installed_at      DateTime @default(now()) @db.Date
+  life_limit_hours  Float    @db.DoublePrecision
+  current_wear_hours Float    @default(0.0) @db.DoublePrecision
+  
+  aircraft Aircraft @relation(fields: [aircraft_id], references: [aircraft_id], onDelete: Cascade)
+  
+  @@map("components")
+}
+
+model Telemetry {
+  time          DateTime @db.Timestamp(6)
+  aircraft_id   Int
+  parameter_name String  @db.VarChar(50)
+  value         Float    @db.DoublePrecision
+  
+  aircraft Aircraft @relation(fields: [aircraft_id], references: [aircraft_id])
+  
+  @@id([time, aircraft_id, parameter_name])
+  @@index([aircraft_id])
+  @@index([time])
+  @@map("telemetry")
+}
+
+model Alert {
+  alert_id        Int           @id @default(autoincrement())
+  aircraft_id     Int
+  created_at      DateTime      @default(now()) @db.Timestamp(6)
+  severity        AlertSeverity @default(warning)
+  message         String        @db.Text
+  is_acknowledged Boolean       @default(false)
+  
+  aircraft Aircraft @relation(fields: [aircraft_id], references: [aircraft_id], onDelete: Cascade)
+  
+  @@map("alerts")
+}
+
+model MaintenanceSchedule {
+  schedule_id    Int         @id @default(autoincrement())
+  aircraft_id    Int
+  scheduled_date DateTime    @db.Date
+  description    String?     @db.Text
+  status         TaskStatus  @default(pending)
+  is_predicted   Boolean     @default(false)
+  
+  aircraft Aircraft        @relation(fields: [aircraft_id], references: [aircraft_id], onDelete: Cascade)
+  maintenanceTasks MaintenanceTask[]
+  
+  @@map("maintenance_schedules")
+}
+
+model MaintenanceTask {
+  task_id          Int       @id @default(autoincrement())
+  schedule_id      Int
+  assigned_user_id Int?
+  description      String    @db.Text
+  completed_at     DateTime? @db.Timestamp(6)
+  is_completed     Boolean   @default(false)
+  
+  schedule MaintenanceSchedule @relation(fields: [schedule_id], references: [schedule_id], onDelete: Cascade)
+  assignedUser User?            @relation(fields: [assigned_user_id], references: [user_id])
+  
+  @@map("maintenance_tasks")
+}
+
