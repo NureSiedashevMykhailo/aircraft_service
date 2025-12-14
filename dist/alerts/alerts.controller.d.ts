@@ -5,12 +5,12 @@ export declare class AlertsController {
     getAircraftAlerts(aircraftId: number, includeAcknowledged?: string, severity?: string): Promise<{
         success: boolean;
         data: {
-            aircraft_id: number;
             created_at: Date;
-            alert_id: number;
             severity: import(".prisma/client").$Enums.AlertSeverity;
             message: string;
             is_acknowledged: boolean;
+            alert_id: number;
+            aircraft_id: number;
         }[];
         count: number;
     }>;

@@ -20,6 +20,7 @@ async function bootstrap() {
         .addTag('Aircrafts', 'Aircraft information')
         .addTag('Maintenance', 'Maintenance management')
         .addTag('Alerts', 'Alerts and notifications')
+        .addTag('Administration', 'User administration and management')
         .build();
     const document = swagger_1.SwaggerModule.createDocument(app, config);
     swagger_1.SwaggerModule.setup('api/docs', app, document);

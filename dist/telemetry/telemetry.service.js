@@ -13,9 +13,53 @@ exports.TelemetryService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
+const THRESHOLDS = {
+    engine_temp: { max: 120.0 },
+    vibration: { max: 5.0 },
+    oil_pressure: { min: 30.0 },
+};
 let TelemetryService = class TelemetryService {
     constructor(prisma) {
         this.prisma = prisma;
+    }
+    async checkAnomalyAndCreateAlert(aircraft_id, parameter_name, value) {
+        const threshold = THRESHOLDS[parameter_name];
+        if (!threshold) {
+            return;
+        }
+        let isAnomaly = false;
+        let limitValue;
+        let comparison;
+        if ('max' in threshold) {
+            if (value > threshold.max) {
+                isAnomaly = true;
+                limitValue = threshold.max;
+                comparison = 'max';
+            }
+        }
+        else if ('min' in threshold) {
+            if (value < threshold.min) {
+                isAnomaly = true;
+                limitValue = threshold.min;
+                comparison = 'min';
+            }
+        }
+        if (isAnomaly) {
+            const message = `Anomaly detected: ${parameter_name} = ${value} (Limit: ${comparison} ${limitValue})`;
+            try {
+                await this.prisma.alert.create({
+                    data: {
+                        aircraft_id,
+                        severity: 'critical',
+                        message,
+                        is_acknowledged: false,
+                    },
+                });
+            }
+            catch (error) {
+                console.error('Failed to create alert:', error);
+            }
+        }
     }
     async createTelemetryRecord(data) {
         try {
@@ -27,6 +71,7 @@ let TelemetryService = class TelemetryService {
                     value: data.value,
                 },
             });
+            await this.checkAnomalyAndCreateAlert(data.aircraft_id, data.parameter_name, data.value);
             return record;
         }
         catch (error) {
@@ -45,6 +90,9 @@ let TelemetryService = class TelemetryService {
                 data: records,
                 skipDuplicates: true,
             });
+            for (const record of records) {
+                await this.checkAnomalyAndCreateAlert(record.aircraft_id, record.parameter_name, record.value);
+            }
             return result;
         }
         catch (error) {

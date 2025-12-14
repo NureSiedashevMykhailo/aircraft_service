@@ -9,9 +9,67 @@ export interface TelemetryRecord {
   value: number;
 }
 
+// Threshold values for anomaly detection
+const THRESHOLDS = {
+  engine_temp: { max: 120.0 },
+  vibration: { max: 5.0 },
+  oil_pressure: { min: 30.0 },
+} as const;
+
 @Injectable()
 export class TelemetryService {
   constructor(private prisma: PrismaService) {}
+
+  /**
+   * Check telemetry value against thresholds and create alert if anomaly detected
+   */
+  private async checkAnomalyAndCreateAlert(
+    aircraft_id: number,
+    parameter_name: string,
+    value: number,
+  ): Promise<void> {
+    const threshold = THRESHOLDS[parameter_name as keyof typeof THRESHOLDS];
+    
+    if (!threshold) {
+      return; // No threshold defined for this parameter
+    }
+
+    let isAnomaly = false;
+    let limitValue: number;
+    let comparison: string;
+
+    if ('max' in threshold) {
+      if (value > threshold.max) {
+        isAnomaly = true;
+        limitValue = threshold.max;
+        comparison = 'max';
+      }
+    } else if ('min' in threshold) {
+      if (value < threshold.min) {
+        isAnomaly = true;
+        limitValue = threshold.min;
+        comparison = 'min';
+      }
+    }
+
+    if (isAnomaly) {
+      const message = `Anomaly detected: ${parameter_name} = ${value} (Limit: ${comparison} ${limitValue})`;
+      
+      try {
+        await this.prisma.alert.create({
+          data: {
+            aircraft_id,
+            severity: 'critical',
+            message,
+            is_acknowledged: false,
+          },
+        });
+      } catch (error) {
+        // Log error but don't fail the telemetry creation
+        console.error('Failed to create alert:', error);
+      }
+    }
+  }
 
   async createTelemetryRecord(data: TelemetryRecord) {
     try {
@@ -23,6 +81,14 @@ export class TelemetryService {
           value: data.value,
         },
       });
+
+      // Check for anomalies and create alert if needed
+      await this.checkAnomalyAndCreateAlert(
+        data.aircraft_id,
+        data.parameter_name,
+        data.value,
+      );
+
       return record;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -42,6 +108,16 @@ export class TelemetryService {
         data: records,
         skipDuplicates: true,
       });
+
+      // Check for anomalies and create alerts for each record
+      for (const record of records) {
+        await this.checkAnomalyAndCreateAlert(
+          record.aircraft_id,
+          record.parameter_name,
+          record.value,
+        );
+      }
+
       return result;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {

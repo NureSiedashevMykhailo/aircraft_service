@@ -12,10 +12,10 @@ export declare class TelemetryController {
         success: boolean;
         message: string;
         data: {
+            aircraft_id: number;
             time: Date;
             parameter_name: string;
             value: number;
-            aircraft_id: number;
         };
         count?: undefined;
     }>;

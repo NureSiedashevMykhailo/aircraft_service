@@ -9,12 +9,12 @@ export declare class AlertsService {
     private prisma;
     constructor(prisma: PrismaService);
     getAircraftAlerts(aircraftId: number, includeAcknowledged?: boolean, severity?: AlertSeverity): Promise<{
-        aircraft_id: number;
         created_at: Date;
-        alert_id: number;
         severity: import(".prisma/client").$Enums.AlertSeverity;
         message: string;
         is_acknowledged: boolean;
+        alert_id: number;
+        aircraft_id: number;
     }[]>;
     createAlert(data: CreateAlertData): Promise<{
         aircraft: {
@@ -22,19 +22,19 @@ export declare class AlertsService {
             model: string;
         };
     } & {
-        aircraft_id: number;
         created_at: Date;
-        alert_id: number;
         severity: import(".prisma/client").$Enums.AlertSeverity;
         message: string;
         is_acknowledged: boolean;
+        alert_id: number;
+        aircraft_id: number;
     }>;
     acknowledgeAlert(alertId: number): Promise<{
-        aircraft_id: number;
         created_at: Date;
-        alert_id: number;
         severity: import(".prisma/client").$Enums.AlertSeverity;
         message: string;
         is_acknowledged: boolean;
+        alert_id: number;
+        aircraft_id: number;
     }>;
 }

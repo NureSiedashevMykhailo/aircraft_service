@@ -9,18 +9,19 @@ export interface TelemetryRecord {
 export declare class TelemetryService {
     private prisma;
     constructor(prisma: PrismaService);
+    private checkAnomalyAndCreateAlert;
     createTelemetryRecord(data: TelemetryRecord): Promise<{
+        aircraft_id: number;
         time: Date;
         parameter_name: string;
         value: number;
-        aircraft_id: number;
     }>;
     createTelemetryRecords(records: TelemetryRecord[]): Promise<Prisma.BatchPayload>;
     getAircraftTelemetry(aircraftId: number, startTime?: Date, endTime?: Date, parameterName?: string): Promise<{
+        aircraft_id: number;
         time: Date;
         parameter_name: string;
         value: number;
-        aircraft_id: number;
     }[]>;
     getLatestTelemetry(aircraftId: number): Promise<{
         time: Date;

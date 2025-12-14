@@ -16,6 +16,8 @@ const maintenance_controller_1 = require("./maintenance/maintenance.controller")
 const maintenance_service_1 = require("./maintenance/maintenance.service");
 const alerts_controller_1 = require("./alerts/alerts.controller");
 const alerts_service_1 = require("./alerts/alerts.service");
+const users_controller_1 = require("./users/users.controller");
+const users_service_1 = require("./users/users.service");
 const prisma_service_1 = require("./prisma/prisma.service");
 let AppModule = class AppModule {
 };
@@ -28,6 +30,7 @@ exports.AppModule = AppModule = __decorate([
             aircraft_controller_1.AircraftController,
             maintenance_controller_1.MaintenanceController,
             alerts_controller_1.AlertsController,
+            users_controller_1.UsersController,
         ],
         providers: [
             prisma_service_1.PrismaService,
@@ -35,6 +38,7 @@ exports.AppModule = AppModule = __decorate([
             aircraft_service_1.AircraftService,
             maintenance_service_1.MaintenanceService,
             alerts_service_1.AlertsService,
+            users_service_1.UsersService,
         ],
     })
 ], AppModule);
