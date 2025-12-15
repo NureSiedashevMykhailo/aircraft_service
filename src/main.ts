@@ -6,7 +6,9 @@ import * as express from 'express';
 import { AppModule } from './app.module';
 
 // Use require for CommonJS module
-const serverlessExpress = require('@vendia/serverless-express');
+// serverlessExpress exports configure function as default
+const serverlessExpressModule = require('@vendia/serverless-express');
+const serverlessExpress = serverlessExpressModule.configure || serverlessExpressModule;
 
 // Variable to store cached serverless handler
 let server: any;
