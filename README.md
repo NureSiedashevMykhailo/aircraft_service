@@ -306,6 +306,61 @@ For viewing you can use:
 - [Swagger Editor](https://editor.swagger.io/)
 - [Swagger UI](https://swagger.io/tools/swagger-ui/)
 
+## Deployment to Vercel
+
+This project is configured to run as a serverless function on Vercel.
+
+### Prerequisites
+
+1. Install Vercel CLI (optional):
+   ```bash
+   npm i -g vercel
+   ```
+
+2. Ensure all dependencies are installed:
+   ```bash
+   npm install
+   ```
+
+### Deployment Steps
+
+1. **Build the project:**
+   ```bash
+   npm run build
+   ```
+
+2. **Deploy to Vercel:**
+   ```bash
+   # Using Vercel CLI
+   vercel
+   
+   # Or connect your GitHub repository to Vercel dashboard
+   ```
+
+3. **Configure Environment Variables:**
+   In Vercel dashboard, add the following environment variables:
+   - `DATABASE_URL` - Your PostgreSQL connection string
+   - `NODE_ENV` - Set to `production`
+
+4. **Build Settings:**
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+   - Install Command: `npm install`
+
+### Important Notes
+
+- The application automatically detects Vercel environment using `VERCEL` environment variable
+- In Vercel, the app runs as a serverless function using `@vendia/serverless-express`
+- For local development, the app runs normally on port 3000
+- Make sure your database is accessible from Vercel (consider using connection pooling for serverless)
+
+### Vercel Configuration
+
+The project includes `vercel.json` with the following configuration:
+- Routes all requests to `dist/main.js`
+- Uses `@vercel/node` builder
+- Sets `NODE_ENV` to `production`
+
 ## Scripts
 
 - `npm run dev` - start development server
