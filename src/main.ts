@@ -1,14 +1,15 @@
-import { NestFactory } from '@nestjs/core';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import { AppModule } from './app.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as express from 'express';
-import * as serverlessExpress from '@vendia/serverless-express';
-import { Handler, Context, Callback } from 'aws-lambda';
+import { AppModule } from './app.module';
+
+// Use require for CommonJS module
+const serverlessExpress = require('@vendia/serverless-express');
 
 // Variable to store cached serverless handler
-let server: Handler;
+let server: any;
 
 /**
  * Configure NestJS application (validation, CORS, Swagger, etc.)
@@ -48,7 +49,7 @@ function configureApp(app: INestApplication): void {
 /**
  * Bootstrap serverless handler for Vercel/Lambda
  */
-async function bootstrap(): Promise<Handler> {
+async function bootstrap(): Promise<any> {
   const expressApp = express();
   const adapter = new ExpressAdapter(expressApp);
   
@@ -60,28 +61,29 @@ async function bootstrap(): Promise<Handler> {
   await app.init();
   
   // Build serverless handler function for Vercel/Lambda
+  // serverlessExpress is the configure function itself (default export)
   return serverlessExpress({ app: expressApp });
 }
 
 /**
  * Export handler function for Vercel
  * Vercel looks for this function to handle serverless requests
+ * This MUST be exported for Vercel to find it
  */
-export async function handler(
-  event: any,
-  context: Context,
-  callback: Callback,
-): Promise<any> {
+export async function handler(event: any, context: any, callback: any): Promise<any> {
   // Cache: if function was already initialized, use cached instance
   server = server ?? (await bootstrap());
   return server(event, context, callback);
 }
 
+// Export as default for Vercel compatibility
+export default handler;
+
 /**
  * Local development: run server normally
  * This code runs only when not in Vercel environment
  */
-if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
   async function runLocal() {
     const app = await NestFactory.create(AppModule);
     
