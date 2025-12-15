@@ -15,3 +15,9 @@ export declare class CreateMaintenanceDto {
     schedule?: MaintenanceScheduleDto;
     task?: MaintenanceTaskDto;
 }
+export declare class UpdateMaintenanceScheduleDto {
+    scheduled_date?: string;
+    description?: string;
+    status?: TaskStatus;
+    is_predicted?: boolean;
+}

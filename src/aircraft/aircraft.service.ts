@@ -84,5 +84,29 @@ export class AircraftService {
       throw error;
     }
   }
+
+  /**
+   * Get aircraft by registration number
+   */
+  async getAircraftByRegNumber(regNumber: string) {
+    try {
+      const aircraft = await this.prisma.aircraft.findUnique({
+        where: {
+          reg_number: regNumber,
+        },
+      });
+
+      if (!aircraft) {
+        throw new Error('Aircraft not found');
+      }
+
+      return aircraft;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        throw new Error(`Database error: ${error.message}`);
+      }
+      throw error;
+    }
+  }
 }
 

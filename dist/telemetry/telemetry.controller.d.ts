@@ -1,13 +1,14 @@
+import { AircraftService } from '../aircraft/aircraft.service';
 import { TelemetryService } from './telemetry.service';
-import { TelemetryRecordDto } from './dto/create-telemetry.dto';
 export declare class TelemetryController {
     private readonly telemetryService;
-    constructor(telemetryService: TelemetryService);
-    createTelemetry(body: TelemetryRecordDto | TelemetryRecordDto[]): Promise<{
+    private readonly aircraftService;
+    private readonly logger;
+    constructor(telemetryService: TelemetryService, aircraftService: AircraftService);
+    createTelemetry(body: any): Promise<{
         success: boolean;
         message: string;
         count: number;
-        data?: undefined;
     } | {
         success: boolean;
         message: string;
@@ -17,6 +18,7 @@ export declare class TelemetryController {
             parameter_name: string;
             value: number;
         };
-        count?: undefined;
     }>;
+    private isIotFormat;
+    private handleIotFormat;
 }

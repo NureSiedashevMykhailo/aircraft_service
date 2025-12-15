@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -18,6 +18,8 @@ const THRESHOLDS = {
 
 @Injectable()
 export class TelemetryService {
+  private readonly logger = new Logger(TelemetryService.name);
+
   constructor(private prisma: PrismaService) {}
 
   /**
@@ -73,6 +75,8 @@ export class TelemetryService {
 
   async createTelemetryRecord(data: TelemetryRecord) {
     try {
+      this.logger.debug(`Creating telemetry record: ${JSON.stringify(data)}`);
+      
       const record = await this.prisma.telemetry.create({
         data: {
           time: data.time,
@@ -91,6 +95,8 @@ export class TelemetryService {
 
       return record;
     } catch (error) {
+      this.logger.error(`Error creating telemetry record: ${error.message}`, error.stack);
+      
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         // P2003 = Foreign key constraint failed
         if (error.code === 'P2003') {

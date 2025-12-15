@@ -1,6 +1,6 @@
-import { IsNotEmpty, IsNumber, IsString, IsDateString, IsOptional, IsBoolean, IsEnum, MinLength, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TaskStatus } from '@prisma/client';
+import { IsBoolean, IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 export class MaintenanceScheduleDto {
   @ApiProperty({ description: 'Aircraft ID', example: 1, minimum: 1 })
@@ -56,5 +56,27 @@ export class CreateMaintenanceDto {
 
   @ApiPropertyOptional({ description: 'Data for creating maintenance task', type: MaintenanceTaskDto })
   task?: MaintenanceTaskDto;
+}
+
+export class UpdateMaintenanceScheduleDto {
+  @ApiPropertyOptional({ description: 'Scheduled maintenance date', example: '2024-02-15', type: String, format: 'date' })
+  @IsDateString()
+  @IsOptional()
+  scheduled_date?: string;
+
+  @ApiPropertyOptional({ description: 'Maintenance schedule description', example: 'Planned maintenance' })
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @ApiPropertyOptional({ description: 'Schedule status', enum: TaskStatus, example: 'pending' })
+  @IsEnum(TaskStatus)
+  @IsOptional()
+  status?: TaskStatus;
+
+  @ApiPropertyOptional({ description: 'Whether the schedule is predicted', example: false })
+  @IsBoolean()
+  @IsOptional()
+  is_predicted?: boolean;
 }
 

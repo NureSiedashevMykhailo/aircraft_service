@@ -72,7 +72,7 @@ npm run db:seed
 
 This will create:
 - 3 users (admin, engineer1, engineer2)
-- 3 aircrafts (RA-12345, RA-67890, RA-11111)
+- 4 aircrafts (RA-12345, RA-67890, RA-11111, AIRCRAFT-001)
 - 4 components
 - 40 telemetry records
 - 3 alerts
@@ -114,9 +114,13 @@ API will be available at: **http://localhost:3000/api**
 │   │   ├── maintenance.controller.ts
 │   │   ├── maintenance.service.ts
 │   │   └── dto/
-│   └── alerts/
-│       ├── alerts.controller.ts
-│       └── alerts.service.ts
+│   ├── alerts/
+│   │   ├── alerts.controller.ts
+│   │   └── alerts.service.ts
+│   └── users/
+│       ├── users.controller.ts
+│       ├── users.service.ts
+│       └── dto/
 ├── prisma/
 │   └── schema.prisma     # Prisma schema
 └── openapi.yaml          # OpenAPI specification
@@ -140,7 +144,9 @@ Accept telemetry data (single record or array).
 ### GET /api/aircrafts/:id
 Get aircraft information by ID.
 
-### POST /api/maintenance
+### Maintenance Endpoints
+
+#### POST /api/maintenance
 Create maintenance schedule or task.
 
 **Schedule creation example:**
@@ -150,7 +156,8 @@ Create maintenance schedule or task.
     "aircraft_id": 1,
     "scheduled_date": "2024-02-15",
     "description": "Planned maintenance",
-    "status": "pending"
+    "status": "pending",
+    "is_predicted": false
   }
 }
 ```
@@ -166,12 +173,117 @@ Create maintenance schedule or task.
 }
 ```
 
+#### GET /api/maintenance/schedules
+Get all maintenance schedules with optional filters.
+
+**Query parameters:**
+- `aircraft_id` (number) - filter by aircraft ID
+- `status` (string) - filter by status: `pending`, `in_progress`, `completed`, `cancelled`
+- `is_predicted` (boolean) - filter by predicted flag
+- `from_date` (string) - filter schedules from date (YYYY-MM-DD)
+- `to_date` (string) - filter schedules to date (YYYY-MM-DD)
+
+**Example:**
+```
+GET /api/maintenance/schedules?is_predicted=true&status=pending
+```
+
+#### GET /api/maintenance/schedules/:id
+Get maintenance schedule by ID with all related tasks.
+
+#### PATCH /api/maintenance/schedules/:id
+Update maintenance schedule.
+
+**Request body example:**
+```json
+{
+  "scheduled_date": "2024-03-01",
+  "description": "Updated maintenance description",
+  "status": "in_progress",
+  "is_predicted": false
+}
+```
+
+#### DELETE /api/maintenance/schedules/:id
+Delete maintenance schedule and all associated tasks.
+
+#### POST /api/maintenance/generate-forecast/:aircraftId
+Generate maintenance forecast based on telemetry data analysis.
+
+This endpoint:
+- Analyzes recent telemetry (last 24 hours) for engine_temp, vibration, oil_pressure
+- Checks component wear levels
+- Considers total flight hours
+- Creates or updates a predicted maintenance schedule (`is_predicted: true`)
+
+**Response example:**
+```json
+{
+  "success": true,
+  "message": "Maintenance forecast generated successfully",
+  "data": {
+    "schedule_id": 5,
+    "aircraft_id": 1,
+    "scheduled_date": "2024-03-15",
+    "is_predicted": true,
+    ...
+  },
+  "analysis": {
+    "days_until_maintenance": 45,
+    "forecast_date": "2024-03-15T00:00:00.000Z",
+    "factors": {
+      "avg_engine_temp": 92.5,
+      "avg_vibration": 1.8,
+      "avg_oil_pressure": 42.0,
+      "critical_components_count": 1,
+      "total_flight_hours": 1250.5
+    }
+  }
+}
+```
+
 ### GET /api/alerts/:aircraftId
 Get alerts for a specific aircraft.
 
 **Query parameters:**
 - `include_acknowledged` (boolean) - include acknowledged alerts
 - `severity` (string) - filter by severity level: `info`, `warning`, `critical`
+
+### Administration Endpoints
+
+#### GET /api/admin/users
+Get list of all users (without password hashes).
+
+**Response example:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "user_id": 1,
+      "email": "admin@aircraft-monitoring.local",
+      "full_name": "Admin User",
+      "role": "admin",
+      "created_at": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+#### DELETE /api/admin/users/:id
+Delete a user by ID.
+
+#### PATCH /api/admin/users/:id/role
+Update user role.
+
+**Request body example:**
+```json
+{
+  "role": "engineer"
+}
+```
+
+**Available roles:** `admin`, `engineer`, `technician`, `operator`
 
 ## API Documentation
 
@@ -216,21 +328,75 @@ Database schema includes the following tables:
 - `maintenance_schedules` - maintenance schedules
 - `maintenance_tasks` - maintenance tasks
 
+## Features
+
+### Automatic Anomaly Detection
+When telemetry data is saved, the system automatically checks for anomalies based on thresholds:
+- **engine_temp**: maximum 120.0°C
+- **vibration**: maximum 5.0
+- **oil_pressure**: minimum 30.0
+
+If a value exceeds its threshold, a critical alert is automatically created in the `alerts` table.
+
+### Maintenance Forecast Generation
+The system can automatically generate maintenance forecasts based on:
+- Recent telemetry data analysis (last 24 hours)
+- Component wear levels
+- Total flight hours
+- Historical maintenance patterns
+
+Forecasts are marked with `is_predicted: true` and can be updated as new data becomes available.
+
+### IoT Client Support
+The telemetry endpoint supports both standard format and IoT client format:
+
+**IoT Client Format:**
+```json
+{
+  "aircraft_id": "AIRCRAFT-001",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "engine_temp": 90.5,
+  "vibration": 1.2,
+  "oil_pressure": 45.0
+}
+```
+
+The system automatically:
+- Converts aircraft registration number to aircraft ID
+- Splits IoT data into individual telemetry records
+- Validates and stores all parameters
+
 ## Notes
 
 - The `telemetry` table uses a composite primary key (time, aircraft_id, parameter_name)
 - All API endpoints return JSON with `success` field and corresponding data or errors
 - Input validation is performed using class-validator (DTOs)
 - The project uses Nest.js architecture with separation into modules, controllers and services
+- Maintenance schedules can be marked as `is_predicted: true` for forecasted maintenance
 
 ## Testing with Mock Data
 
 After running `npm run db:seed`, you can test the API with the following:
 
-- **Get aircraft info:** `GET /api/aircrafts/1` (or 2, 3)
-- **Create telemetry:** `POST /api/telemetry` (use `aircraft_id: 1, 2, or 3`)
-- **Get alerts:** `GET /api/alerts/1` (or 2, 3)
+- **Get aircraft info:** `GET /api/aircrafts/1` (or 2, 3, 4)
+- **Create telemetry:** `POST /api/telemetry` (use `aircraft_id: 1, 2, 3, or 4`)
+- **Get alerts:** `GET /api/alerts/1` (or 2, 3, 4)
 - **Create maintenance:** `POST /api/maintenance` (use existing `aircraft_id`)
+- **Get all schedules:** `GET /api/maintenance/schedules`
+- **Generate forecast:** `POST /api/maintenance/generate-forecast/1`
+- **Get users:** `GET /api/admin/users`
+- **Update user role:** `PATCH /api/admin/users/1/role` with `{"role": "engineer"}`
 
-All mock data uses aircraft IDs: 1, 2, or 3.
+**IoT Client Testing:**
+The seed script creates an aircraft with `reg_number: "AIRCRAFT-001"` for IoT client testing. You can send telemetry in IoT format:
+```json
+{
+  "aircraft_id": "AIRCRAFT-001",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "engine_temp": 90.5,
+  "vibration": 1.2
+}
+```
+
+All mock data uses aircraft IDs: 1, 2, 3, or 4.
 

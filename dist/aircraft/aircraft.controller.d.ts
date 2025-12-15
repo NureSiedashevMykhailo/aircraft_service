@@ -15,18 +15,18 @@ export declare class AircraftController {
                 current_wear_hours: number;
             }[];
             alerts: {
+                aircraft_id: number;
                 created_at: Date;
+                alert_id: number;
                 severity: import(".prisma/client").$Enums.AlertSeverity;
                 message: string;
                 is_acknowledged: boolean;
-                alert_id: number;
-                aircraft_id: number;
             }[];
             maintenanceSchedules: {
                 aircraft_id: number;
-                description: string | null;
                 scheduled_date: Date;
                 schedule_id: number;
+                description: string | null;
                 status: import(".prisma/client").$Enums.TaskStatus;
                 is_predicted: boolean;
             }[];

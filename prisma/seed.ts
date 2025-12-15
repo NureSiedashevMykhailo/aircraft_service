@@ -78,7 +78,25 @@ async function main() {
     },
   });
 
-  console.log('Created aircrafts:', { aircraft1: aircraft1.reg_number, aircraft2: aircraft2.reg_number, aircraft3: aircraft3.reg_number });
+  // Create aircraft for IoT client testing
+  const aircraftIot = await prisma.aircraft.upsert({
+    where: { reg_number: 'AIRCRAFT-001' },
+    update: {},
+    create: {
+      reg_number: 'AIRCRAFT-001',
+      model: 'Test Aircraft for IoT',
+      manufacture_date: new Date('2023-01-01'),
+      total_flight_hours: 1000.0,
+      last_maintenance_date: new Date('2024-01-01'),
+    },
+  });
+
+  console.log('Created aircrafts:', { 
+    aircraft1: aircraft1.reg_number, 
+    aircraft2: aircraft2.reg_number, 
+    aircraft3: aircraft3.reg_number,
+    aircraftIot: aircraftIot.reg_number,
+  });
 
   // Create components
   // Delete existing components for these aircrafts to avoid duplicates

@@ -93,6 +93,25 @@ let AircraftService = class AircraftService {
             throw error;
         }
     }
+    async getAircraftByRegNumber(regNumber) {
+        try {
+            const aircraft = await this.prisma.aircraft.findUnique({
+                where: {
+                    reg_number: regNumber,
+                },
+            });
+            if (!aircraft) {
+                throw new Error('Aircraft not found');
+            }
+            return aircraft;
+        }
+        catch (error) {
+            if (error instanceof client_1.Prisma.PrismaClientKnownRequestError) {
+                throw new Error(`Database error: ${error.message}`);
+            }
+            throw error;
+        }
+    }
 };
 exports.AircraftService = AircraftService;
 exports.AircraftService = AircraftService = __decorate([

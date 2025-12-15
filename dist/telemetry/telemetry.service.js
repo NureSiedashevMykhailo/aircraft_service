@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var TelemetryService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TelemetryService = void 0;
 const common_1 = require("@nestjs/common");
@@ -18,9 +19,10 @@ const THRESHOLDS = {
     vibration: { max: 5.0 },
     oil_pressure: { min: 30.0 },
 };
-let TelemetryService = class TelemetryService {
+let TelemetryService = TelemetryService_1 = class TelemetryService {
     constructor(prisma) {
         this.prisma = prisma;
+        this.logger = new common_1.Logger(TelemetryService_1.name);
     }
     async checkAnomalyAndCreateAlert(aircraft_id, parameter_name, value) {
         const threshold = THRESHOLDS[parameter_name];
@@ -63,6 +65,7 @@ let TelemetryService = class TelemetryService {
     }
     async createTelemetryRecord(data) {
         try {
+            this.logger.debug(`Creating telemetry record: ${JSON.stringify(data)}`);
             const record = await this.prisma.telemetry.create({
                 data: {
                     time: data.time,
@@ -75,6 +78,7 @@ let TelemetryService = class TelemetryService {
             return record;
         }
         catch (error) {
+            this.logger.error(`Error creating telemetry record: ${error.message}`, error.stack);
             if (error instanceof client_1.Prisma.PrismaClientKnownRequestError) {
                 if (error.code === 'P2003') {
                     throw new Error(`Aircraft with ID ${data.aircraft_id} not found`);
@@ -157,7 +161,7 @@ let TelemetryService = class TelemetryService {
     }
 };
 exports.TelemetryService = TelemetryService;
-exports.TelemetryService = TelemetryService = __decorate([
+exports.TelemetryService = TelemetryService = TelemetryService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], TelemetryService);

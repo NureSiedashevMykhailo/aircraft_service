@@ -8,6 +8,7 @@ export interface TelemetryRecord {
 }
 export declare class TelemetryService {
     private prisma;
+    private readonly logger;
     constructor(prisma: PrismaService);
     private checkAnomalyAndCreateAlert;
     createTelemetryRecord(data: TelemetryRecord): Promise<{

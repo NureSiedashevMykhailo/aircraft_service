@@ -9,10 +9,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CreateMaintenanceDto = exports.MaintenanceTaskDto = exports.MaintenanceScheduleDto = void 0;
-const class_validator_1 = require("class-validator");
+exports.UpdateMaintenanceScheduleDto = exports.CreateMaintenanceDto = exports.MaintenanceTaskDto = exports.MaintenanceScheduleDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const client_1 = require("@prisma/client");
+const class_validator_1 = require("class-validator");
 class MaintenanceScheduleDto {
 }
 exports.MaintenanceScheduleDto = MaintenanceScheduleDto;
@@ -82,4 +82,31 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Data for creating maintenance task', type: MaintenanceTaskDto }),
     __metadata("design:type", MaintenanceTaskDto)
 ], CreateMaintenanceDto.prototype, "task", void 0);
+class UpdateMaintenanceScheduleDto {
+}
+exports.UpdateMaintenanceScheduleDto = UpdateMaintenanceScheduleDto;
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Scheduled maintenance date', example: '2024-02-15', type: String, format: 'date' }),
+    (0, class_validator_1.IsDateString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateMaintenanceScheduleDto.prototype, "scheduled_date", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Maintenance schedule description', example: 'Planned maintenance' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateMaintenanceScheduleDto.prototype, "description", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Schedule status', enum: client_1.TaskStatus, example: 'pending' }),
+    (0, class_validator_1.IsEnum)(client_1.TaskStatus),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateMaintenanceScheduleDto.prototype, "status", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Whether the schedule is predicted', example: false }),
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], UpdateMaintenanceScheduleDto.prototype, "is_predicted", void 0);
 //# sourceMappingURL=create-maintenance.dto.js.map
