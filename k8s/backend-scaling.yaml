@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aircraft-backend
+  labels:
+    app: aircraft-api
+spec:
+  replicas: 1 # Для тесту будемо змінювати на 3, 5 і т.д.
+  selector:
+    matchLabels:
+      app: aircraft-api
+  template:
+    metadata:
+      labels:
+        app: aircraft-api
+    spec:
+      containers:
+        - name: backend-node
+          image: aircraft-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://user:pass@db-host:5432/aircraft_db" # Твій коннект
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aircraft-backend-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: aircraft-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

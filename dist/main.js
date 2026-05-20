@@ -1,13 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handler = handler;
-const core_1 = require("@nestjs/core");
 const common_1 = require("@nestjs/common");
-const swagger_1 = require("@nestjs/swagger");
+const core_1 = require("@nestjs/core");
 const platform_express_1 = require("@nestjs/platform-express");
-const app_module_1 = require("./app.module");
+const swagger_1 = require("@nestjs/swagger");
 const express = require("express");
-const serverlessExpress = require('@vendia/serverless-express');
+const app_module_1 = require("./app.module");
+const serverlessExpressModule = require('@vendia/serverless-express');
+const serverlessExpress = serverlessExpressModule.configure || serverlessExpressModule;
 let server;
 function configureApp(app) {
     app.useGlobalPipes(new common_1.ValidationPipe({
@@ -43,15 +44,25 @@ async function handler(event, context, callback) {
     return server(event, context, callback);
 }
 exports.default = handler;
-if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
-    async function runLocal() {
-        const app = await core_1.NestFactory.create(app_module_1.AppModule);
-        configureApp(app);
-        const port = process.env.PORT || 3000;
-        await app.listen(port);
-        console.log(`Application is running on: http://localhost:${port}/api`);
-        console.log(`Swagger documentation: http://localhost:${port}/api/docs`);
+if (!process.env.VERCEL) {
+    async function runServer() {
+        try {
+            console.log('Starting Nest.js application...');
+            console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+            console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? '***configured***' : 'NOT SET'}`);
+            const app = await core_1.NestFactory.create(app_module_1.AppModule);
+            configureApp(app);
+            const port = process.env.PORT || 3000;
+            const host = process.env.HOSTNAME || '0.0.0.0';
+            await app.listen(port, host);
+            console.log(`✅ Application is running on: http://${host}:${port}/api`);
+            console.log(`📚 Swagger documentation: http://${host}:${port}/api/docs`);
+        }
+        catch (error) {
+            console.error('❌ Failed to start server:', error);
+            process.exit(1);
+        }
     }
-    runLocal();
+    runServer();
 }
 //# sourceMappingURL=main.js.map

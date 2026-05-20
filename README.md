@@ -1,457 +1,425 @@
-# Aircraft Monitoring System API
+# ✈️ Aircraft Monitoring System API
 
-RESTful API for aircraft technical condition monitoring system.
+[![NestJS](https://img.shields.io/badge/Framework-Nest.js-red.svg?style=for-the-badge&logo=nestjs)](https://nestjs.com/)
+[![TypeScript](https://img.shields.io/badge/Language-TypeScript-blue.svg?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-blue.svg?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
+[![Prisma ORM](https://img.shields.io/badge/ORM-Prisma-2D3748.svg?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
+[![Docker](https://img.shields.io/badge/Container-Docker-2496ED.svg?style=for-the-badge&logo=docker)](https://www.docker.com/)
+[![Vercel](https://img.shields.io/badge/Deployment-Vercel-000000.svg?style=for-the-badge&logo=vercel)](https://vercel.com/)
 
-## Tech Stack
+**Aircraft Monitoring System API** is a high-performance RESTful service built with NestJS and Prisma ORM, designed for real-time telemetry processing, automated anomaly detection, and predictive maintenance scheduling for commercial aircraft fleets.
 
-- **Framework:** Nest.js
-- **Language:** TypeScript
-- **Database:** PostgreSQL 14+
-- **ORM:** Prisma
-- **Environment:** Node.js 18+
+---
 
-## Installation
+## 🛠️ System Architecture & Data Flow
 
-### Step 1: Install Dependencies
+The system processes high-frequency time-series telemetry from aircraft sensors, stores records in PostgreSQL, validates them against safe operating thresholds to trigger alerts, and runs a predictive analytics algorithm to forecast maintenance schedules.
+
+```mermaid
+flowchart TD
+    subgraph Ingestion
+        IoT[📡 IoT Sensor Client] -->|IoT Payload: Reg Number| TelemetryAPI[POST /api/telemetry]
+        Std[💻 Fleet Operator] -->|Standard JSON: Aircraft ID| TelemetryAPI
+    end
+
+    subgraph Core Processing
+        TelemetryAPI -->|Batch Ingestion| Service[Telemetry Service]
+        Service -->|Write Time-Series| DB[(PostgreSQL)]
+        Service -->|Check Thresholds| Anomaly[Anomaly Detection Engine]
+    end
+
+    subgraph Alerts & Notifications
+        Anomaly -->|Threshold Exceeded| AlertDB[Create Critical Alert]
+        AlertDB --> DB
+    end
+
+    subgraph Predictive Analysis
+        ForecastAPI[POST /api/maintenance/generate-forecast/:aircraftId] -->|Trigger| ForecastService[Forecast Engine]
+        DB -->|Fetch Last 24h Telemetry| ForecastService
+        DB -->|Fetch Wear Levels & Flight Hours| ForecastService
+        ForecastService -->|Multi-Factor Forecast Algorithm| Predict[Predict Next Maintenance Date]
+        Predict -->|Create/Update is_predicted: true| SchedDB[Maintenance Schedule]
+        SchedDB --> DB
+    end
+```
+
+---
+
+## ⚡ Key Features
+
+### 1. High-Frequency Telemetry Ingestion
+- Supports standard time-series data formats.
+- Supports bulk uploads (batch processing up to **1000 records** in a single request).
+- **IoT Payload Normalization:** Converts aircraft registration codes (e.g., `AIRCRAFT-001`) into internal database IDs automatically and normalizes flat sensor feeds.
+
+### 2. Real-Time Anomaly Detection
+Every telemetry record ingested is automatically checked against critical physical thresholds:
+- **Engine Temperature (`engine_temp`):** Critical above **`120.0°C`**
+- **Vibration level (`vibration`):** Critical above **`5.0`**
+- **Oil Pressure (`oil_pressure`):** Critical below **`30.0 PSI`**
+
+If a record violates these parameters, the system instantly logs a `critical` severity alert inside the `alerts` database table for engineers.
+
+### 3. Multi-Factor Predictive Maintenance
+The `POST /api/maintenance/generate-forecast/:aircraftId` endpoint implements a predictive maintenance forecast engine analyzing several flight factors to schedule necessary servicing before failures occur:
+- **Base Interval:** Starts at 90 days.
+- **Engine Temp Impact:** If average temp > 110°C reduces interval by **30 days**; > 100°C reduces it by **15 days**.
+- **Vibration Impact:** If average vibration > 4.0 reduces interval by **20 days**; > 3.0 reduces it by **10 days**.
+- **Oil Pressure Impact:** If average oil pressure < 35 PSI reduces interval by **25 days**; < 40 PSI reduces it by **10 days**.
+- **Component Wear:** If any aircraft component exceeds **80% wear** of its lifetime limit, reduces interval by **20 days**.
+- **Total Flight Hours:** Over 1000 flight hours reduces interval by **20 days**; over 500 hours by **10 days**.
+- *Ensures a safe minimum threshold of **7 days** before scheduling.*
+
+---
+
+## 🗄️ Database Design (Entity-Relationship)
+
+```mermaid
+erDiagram
+    users {
+        int user_id PK
+        string email UK
+        string full_name
+        string password_hash
+        UserRole role
+        timestamp created_at
+    }
+    aircrafts {
+        int aircraft_id PK
+        string reg_number UK
+        string model
+        date manufacture_date
+        double total_flight_hours
+        date last_maintenance_date
+    }
+    components {
+        int component_id PK
+        int aircraft_id FK
+        string name
+        string serial_number
+        date installed_at
+        double life_limit_hours
+        double current_wear_hours
+    }
+    telemetry {
+        timestamp time PK
+        int aircraft_id PK, FK
+        string parameter_name PK
+        double value
+    }
+    alerts {
+        int alert_id PK
+        int aircraft_id FK
+        timestamp created_at
+        AlertSeverity severity
+        string message
+        boolean is_acknowledged
+    }
+    maintenance_schedules {
+        int schedule_id PK
+        int aircraft_id FK
+        date scheduled_date
+        string description
+        TaskStatus status
+        boolean is_predicted
+    }
+    maintenance_tasks {
+        int task_id PK
+        int schedule_id FK
+        int assigned_user_id FK
+        string description
+        timestamp completed_at
+        boolean is_completed
+    }
+
+    aircrafts ||--o{ components : "contains"
+    aircrafts ||--o{ telemetry : "tracks"
+    aircrafts ||--o{ alerts : "generates"
+    aircrafts ||--o{ maintenance_schedules : "schedules"
+    maintenance_schedules ||--o{ maintenance_tasks : "contains"
+    users ||--o{ maintenance_tasks : "assigns"
+```
+
+---
+
+## 📦 Installation & Setup
+
+### Option 1: Docker (Recommended)
+
+Run the application using Docker Compose with zero manual database configuration.
+
+#### Prerequisites
+- Docker Engine 20.10+ / Docker Desktop
+- Docker Compose v2.0+
+
+#### Quick Start
+
+1. **Configure Environment Variables (Optional):**
+   ```bash
+   cp .docker.env.example .docker.env
+   ```
+   *Edit `.docker.env` to customize ports and PostgreSQL credentials if necessary.*
+
+2. **Start Services:**
+   ```bash
+   # Production mode
+   docker-compose up -d
+
+   # Development mode (with hot-reloading)
+   docker-compose -f docker-compose.dev.yml up -d
+
+   # Alternately, use the shell scripts (macOS/Linux)
+   chmod +x docker-start.sh docker-stop.sh
+   ./docker-start.sh dev
+   ```
+
+3. **Verify running containers:**
+   ```bash
+   docker-compose ps
+   ```
+
+4. **Shutdown and clean up database volumes:**
+   ```bash
+   docker-compose down -v
+   ```
+
+---
+
+### Option 2: Manual Installation
+
+#### 1. Install Node Dependencies
 ```bash
 npm install
 ```
 
-### Step 2: Database Setup
+#### 2. Local PostgreSQL Setup
+Create a new database in PostgreSQL named `aircraft_monitoring`:
+```sql
+CREATE DATABASE aircraft_monitoring;
+```
 
-1. **Create PostgreSQL database:**
-   ```sql
-   CREATE DATABASE aircraft_monitoring;
-   ```
-
-2. **Create `.env` file from example:**
-   ```bash
-   # Windows (PowerShell)
-   Copy-Item .env.example .env
-   
-   # Linux/Mac
-   cp .env.example .env
-   ```
-
-3. **Edit `.env` file and specify your connection details:**
-   ```env
-   DATABASE_URL="postgresql://username:password@localhost:5432/aircraft_monitoring?schema=public"
-   ```
-   
-   Replace:
-   - `username` - your PostgreSQL user
-   - `password` - your PostgreSQL password
-   - `localhost:5432` - host and port (if different)
-   - `aircraft_monitoring` - database name
-
-### Step 3: Apply Database Schema
-
+#### 3. Environment File
+Create a `.env` file in the root directory:
 ```bash
-# Apply schema to database
+# Windows
+Copy-Item .env.example .env
+
+# macOS / Linux
+cp .env.example .env
+```
+Update `DATABASE_URL` inside `.env` to match your local database settings:
+```env
+DATABASE_URL="postgresql://username:password@localhost:5432/aircraft_monitoring?schema=public"
+```
+
+#### 4. Sync Database Schema & Generate Prisma Client
+```bash
+# Push schema definitions
 npm run db:push
-```
 
-Or use migrations:
-```bash
-npm run db:migrate
-```
-
-### Step 4: Generate Prisma Client
-
-```bash
+# Generate Prisma Client types
 npm run db:generate
 ```
 
-### Step 5: Seed Database (Optional)
-
-Populate the database with mock data for testing:
-
+#### 5. Seed Database (Mock Data for Testing)
+Prepopulate the database with pre-configured users, aircraft, components, telemetry, and schedules:
 ```bash
 npm run db:seed
 ```
 
-This will create:
-- 3 users (admin, engineer1, engineer2)
-- 4 aircrafts (RA-12345, RA-67890, RA-11111, AIRCRAFT-001)
-- 4 components
-- 40 telemetry records
-- 3 alerts
-- 3 maintenance schedules
-- 4 maintenance tasks
-
-### Step 6: Start Server
-
+#### 6. Run Server
 ```bash
-# Development mode (with auto-reload)
+# Development (with hot-reload)
 npm run dev
 
-# Or production mode
+# Production Build & Run
 npm run build
 npm run start
 ```
 
-API will be available at: **http://localhost:3000/api**
+- **API Endpoint:** `http://localhost:3000/api`
+- **Swagger Documentation:** `http://localhost:3000/api/docs`
 
-**Swagger documentation:** http://localhost:3000/api/docs
+---
 
-## Project Structure
+## 🚀 API Endpoints
 
-```
-.
-├── src/
-│   ├── main.ts           # Application entry point
-│   ├── app.module.ts     # Root module
-│   ├── prisma/
-│   │   └── prisma.service.ts  # Prisma Service
-│   ├── telemetry/
-│   │   ├── telemetry.controller.ts
-│   │   ├── telemetry.service.ts
-│   │   └── dto/
-│   ├── aircraft/
-│   │   ├── aircraft.controller.ts
-│   │   └── aircraft.service.ts
-│   ├── maintenance/
-│   │   ├── maintenance.controller.ts
-│   │   ├── maintenance.service.ts
-│   │   └── dto/
-│   ├── alerts/
-│   │   ├── alerts.controller.ts
-│   │   └── alerts.service.ts
-│   └── users/
-│       ├── users.controller.ts
-│       ├── users.service.ts
-│       └── dto/
-├── prisma/
-│   └── schema.prisma     # Prisma schema
-└── openapi.yaml          # OpenAPI specification
-```
-
-## API Endpoints
-
-### POST /api/telemetry
-Accept telemetry data (single record or array).
-
-**Request example:**
-```json
-{
-  "time": "2024-01-15T10:30:00Z",
-  "aircraft_id": 1,
-  "parameter_name": "engine_temperature",
-  "value": 85.5
-}
-```
-
-### GET /api/aircrafts/:id
-Get aircraft information by ID.
-
-### Maintenance Endpoints
-
-#### POST /api/maintenance
-Create maintenance schedule or task.
-
-**Schedule creation example:**
-```json
-{
-  "schedule": {
-    "aircraft_id": 1,
-    "scheduled_date": "2024-02-15",
-    "description": "Planned maintenance",
-    "status": "pending",
-    "is_predicted": false
-  }
-}
-```
-
-**Task creation example:**
-```json
-{
-  "task": {
-    "schedule_id": 1,
-    "assigned_user_id": 2,
-    "description": "Check cooling system"
-  }
-}
-```
-
-#### GET /api/maintenance/schedules
-Get all maintenance schedules with optional filters.
-
-**Query parameters:**
-- `aircraft_id` (number) - filter by aircraft ID
-- `status` (string) - filter by status: `pending`, `in_progress`, `completed`, `cancelled`
-- `is_predicted` (boolean) - filter by predicted flag
-- `from_date` (string) - filter schedules from date (YYYY-MM-DD)
-- `to_date` (string) - filter schedules to date (YYYY-MM-DD)
-
-**Example:**
-```
-GET /api/maintenance/schedules?is_predicted=true&status=pending
-```
-
-#### GET /api/maintenance/schedules/:id
-Get maintenance schedule by ID with all related tasks.
-
-#### PATCH /api/maintenance/schedules/:id
-Update maintenance schedule.
-
-**Request body example:**
-```json
-{
-  "scheduled_date": "2024-03-01",
-  "description": "Updated maintenance description",
-  "status": "in_progress",
-  "is_predicted": false
-}
-```
-
-#### DELETE /api/maintenance/schedules/:id
-Delete maintenance schedule and all associated tasks.
-
-#### POST /api/maintenance/generate-forecast/:aircraftId
-Generate maintenance forecast based on telemetry data analysis.
-
-This endpoint:
-- Analyzes recent telemetry (last 24 hours) for engine_temp, vibration, oil_pressure
-- Checks component wear levels
-- Considers total flight hours
-- Creates or updates a predicted maintenance schedule (`is_predicted: true`)
-
-**Response example:**
+All responses follow a standard envelope schema:
 ```json
 {
   "success": true,
-  "message": "Maintenance forecast generated successfully",
-  "data": {
-    "schedule_id": 5,
-    "aircraft_id": 1,
-    "scheduled_date": "2024-03-15",
-    "is_predicted": true,
-    ...
-  },
-  "analysis": {
-    "days_until_maintenance": 45,
-    "forecast_date": "2024-03-15T00:00:00.000Z",
-    "factors": {
-      "avg_engine_temp": 92.5,
-      "avg_vibration": 1.8,
-      "avg_oil_pressure": 42.0,
-      "critical_components_count": 1,
-      "total_flight_hours": 1250.5
-    }
-  }
+  "data": { ... }
 }
 ```
 
-### GET /api/alerts/:aircraftId
-Get alerts for a specific aircraft.
+### 📈 Telemetry Management
 
-**Query parameters:**
-- `include_acknowledged` (boolean) - include acknowledged alerts
-- `severity` (string) - filter by severity level: `info`, `warning`, `critical`
+#### `POST /api/telemetry`
+Accepts a single telemetry record, a batch of telemetry records, or flat IoT client sensor feeds.
 
-### Administration Endpoints
+- **Standard Single Record:**
+  ```json
+  {
+    "time": "2026-05-20T12:00:00Z",
+    "aircraft_id": 1,
+    "parameter_name": "engine_temp",
+    "value": 115.5
+  }
+  ```
 
-#### GET /api/admin/users
-Get list of all users (without password hashes).
-
-**Response example:**
-```json
-{
-  "success": true,
-  "data": [
+- **Standard Batch (Max 1000 items):**
+  ```json
+  [
     {
-      "user_id": 1,
-      "email": "admin@aircraft-monitoring.local",
-      "full_name": "Admin User",
-      "role": "admin",
-      "created_at": "2024-01-01T00:00:00.000Z"
+      "time": "2026-05-20T12:00:00Z",
+      "aircraft_id": 1,
+      "parameter_name": "vibration",
+      "value": 2.4
+    },
+    {
+      "time": "2026-05-20T12:00:00Z",
+      "aircraft_id": 1,
+      "parameter_name": "oil_pressure",
+      "value": 45.1
     }
-  ]
-}
+  ```
+
+- **Flat IoT Client format (Automated resolution):**
+  ```json
+  {
+    "aircraft_id": "AIRCRAFT-001",
+    "timestamp": "2026-05-20T12:00:00Z",
+    "engine_temp": 125.5,
+    "vibration": 5.8,
+    "oil_pressure": 28.5
+  }
+  ```
+  *(Sends alerts to database automatically for values above thresholds: Temp > 120.0, Vibration > 5.0, Oil Pressure < 30.0)*
+
+---
+
+### 🔧 Maintenance & Predictive Forecasts
+
+#### `POST /api/maintenance`
+Creates a new maintenance schedule or sub-task.
+
+- **Creating a Schedule:**
+  ```json
+  {
+    "schedule": {
+      "aircraft_id": 1,
+      "scheduled_date": "2026-06-01",
+      "description": "Engines Overhaul",
+      "status": "pending",
+      "is_predicted": false
+    }
+  }
+  ```
+
+- **Creating a Task:**
+  ```json
+  {
+    "task": {
+      "schedule_id": 1,
+      "assigned_user_id": 2,
+      "description": "Inspect turbine exhaust"
+    }
+  }
+  ```
+
+#### `GET /api/maintenance/schedules`
+Returns all schedules. Filters: `aircraft_id`, `status` (`pending`, `in_progress`, `completed`, `cancelled`), `is_predicted` (`true`/`false`), and date ranges (`from_date`, `to_date`).
+```
+GET /api/maintenance/schedules?status=pending&is_predicted=true
 ```
 
-#### DELETE /api/admin/users/:id
-Delete a user by ID.
+#### `POST /api/maintenance/generate-forecast/:aircraftId`
+Triggers the multi-factor wear-index forecast engine to evaluate physical parameters and generate a predicted maintenance date.
+- **Example Response:**
+  ```json
+  {
+    "success": true,
+    "message": "Maintenance forecast generated successfully",
+    "data": {
+      "schedule_id": 4,
+      "aircraft_id": 1,
+      "scheduled_date": "2026-07-04T00:00:00.000Z",
+      "description": "Predicted maintenance based on telemetry analysis. Avg engine temp: 91.4°C, Avg vibration: 1.25, Avg oil pressure: 44.2",
+      "status": "pending",
+      "is_predicted": true
+    },
+    "analysis": {
+      "days_until_maintenance": 45,
+      "forecast_date": "2026-07-04T00:00:00.000Z",
+      "factors": {
+        "avg_engine_temp": 91.4,
+        "avg_vibration": 1.25,
+        "avg_oil_pressure": 44.2,
+        "critical_components_count": 1,
+        "total_flight_hours": 12500.5
+      }
+    }
+  }
+  ```
 
-#### PATCH /api/admin/users/:id/role
-Update user role.
+---
 
-**Request body example:**
+### 🚨 Alert Monitoring
+
+#### `GET /api/alerts/:aircraftId`
+Retrieve telemetry anomalies and system alarms.
+- **Parameters:**
+  - `include_acknowledged` (boolean) - Include historical alerts.
+  - `severity` (`info` | `warning` | `critical`) - Filter by priority.
+
+---
+
+### 👥 User & Fleet Administration
+
+#### `GET /api/admin/users`
+List system technicians and engineers.
+
+#### `PATCH /api/admin/users/:id/role`
+Updates roles. Available roles: `admin`, `engineer`, `technician`, `operator`.
 ```json
 {
-  "role": "engineer"
+  "role": "admin"
 }
 ```
 
-**Available roles:** `admin`, `engineer`, `technician`, `operator`
+---
 
-## API Documentation
+## 🧪 Seeding & Test Data Configurations
 
-### Swagger UI (Interactive Documentation)
+Running `npm run db:seed` provisions three standard users for role-based simulation:
 
-After starting the server, Swagger UI is available at:
-**http://localhost:3000/api/docs**
+| Email | Full Name | Default Role |
+| :--- | :--- | :--- |
+| `admin@aircraft-monitoring.local` | Admin User | `admin` |
+| `engineer1@aircraft-monitoring.local` | John Engineer | `engineer` |
+| `engineer2@aircraft-monitoring.local` | Jane Technician | `technician` |
 
-Swagger UI provides:
-- Interactive documentation of all API endpoints
-- Ability to test API directly from the browser
-- Description of all DTOs and data schemas
-- Request and response examples
+It also registers **4 Aircraft** (IDs `1` to `4`):
+- `1` - `RA-12345` (Boeing 737-800, 12,500.5 hours)
+- `2` - `RA-67890` (Airbus A320, 8,500 hours)
+- `3` - `RA-11111` (Boeing 777-300ER, 3,200 hours)
+- `4` - `AIRCRAFT-001` (Test Aircraft for IoT, 1,000 hours)
 
-### OpenAPI Specification
+---
 
-Full API specification is also available in `openapi.yaml` file (OpenAPI 3.0.3).
+## 🛠️ Diagnostics & Troubleshooting
 
-For viewing you can use:
-- [Swagger Editor](https://editor.swagger.io/)
-- [Swagger UI](https://swagger.io/tools/swagger-ui/)
+Need help? Detailed instructions are available in [DOCKER_TROUBLESHOOTING.md](file:///d:/University/3rdCourse/1stTerm/Code%20Analyz%20and%20Refactoring/API/DOCKER_TROUBLESHOOTING.md).
 
-## Deployment to Vercel
+```bash
+# Tail docker logs
+docker-compose logs -f api
 
-This project is configured to run as a serverless function on Vercel.
+# Direct database access
+docker-compose exec postgres psql -U postgres -d aircraft_monitoring
 
-### Prerequisites
-
-1. Install Vercel CLI (optional):
-   ```bash
-   npm i -g vercel
-   ```
-
-2. Ensure all dependencies are installed:
-   ```bash
-   npm install
-   ```
-
-### Deployment Steps
-
-1. **Build the project:**
-   ```bash
-   npm run build
-   ```
-
-2. **Deploy to Vercel:**
-   ```bash
-   # Using Vercel CLI
-   vercel
-   
-   # Or connect your GitHub repository to Vercel dashboard
-   ```
-
-3. **Configure Environment Variables:**
-   In Vercel dashboard, add the following environment variables:
-   - `DATABASE_URL` - Your PostgreSQL connection string
-   - `NODE_ENV` - Set to `production`
-
-4. **Build Settings:**
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-   - Install Command: `npm install`
-
-### Important Notes
-
-- The application automatically detects Vercel environment using `VERCEL` environment variable
-- In Vercel, the app runs as a serverless function using `@vendia/serverless-express`
-- For local development, the app runs normally on port 3000
-- Make sure your database is accessible from Vercel (consider using connection pooling for serverless)
-
-### Vercel Configuration
-
-The project includes `vercel.json` with the following configuration:
-- Routes all requests to `dist/main.js`
-- Uses `@vercel/node` builder
-- Sets `NODE_ENV` to `production`
-
-## Scripts
-
-- `npm run dev` - start development server
-- `npm run build` - build project
-- `npm run start` - start production server
-- `npm run db:generate` - generate Prisma Client
-- `npm run db:push` - apply schema changes to database
-- `npm run db:migrate` - create migration
-- `npm run db:studio` - open Prisma Studio
-- `npm run db:seed` - populate database with mock data
-
-## Database
-
-Database schema includes the following tables:
-- `users` - system users
-- `aircrafts` - aircraft
-- `components` - aircraft components
-- `telemetry` - telemetry data
-- `alerts` - alerts
-- `maintenance_schedules` - maintenance schedules
-- `maintenance_tasks` - maintenance tasks
-
-## Features
-
-### Automatic Anomaly Detection
-When telemetry data is saved, the system automatically checks for anomalies based on thresholds:
-- **engine_temp**: maximum 120.0°C
-- **vibration**: maximum 5.0
-- **oil_pressure**: minimum 30.0
-
-If a value exceeds its threshold, a critical alert is automatically created in the `alerts` table.
-
-### Maintenance Forecast Generation
-The system can automatically generate maintenance forecasts based on:
-- Recent telemetry data analysis (last 24 hours)
-- Component wear levels
-- Total flight hours
-- Historical maintenance patterns
-
-Forecasts are marked with `is_predicted: true` and can be updated as new data becomes available.
-
-### IoT Client Support
-The telemetry endpoint supports both standard format and IoT client format:
-
-**IoT Client Format:**
-```json
-{
-  "aircraft_id": "AIRCRAFT-001",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "engine_temp": 90.5,
-  "vibration": 1.2,
-  "oil_pressure": 45.0
-}
+# Launch Prisma Studio to visually browse databases
+npm run db:studio
+# (Or within Docker)
+docker-compose exec api npx prisma studio
 ```
-
-The system automatically:
-- Converts aircraft registration number to aircraft ID
-- Splits IoT data into individual telemetry records
-- Validates and stores all parameters
-
-## Notes
-
-- The `telemetry` table uses a composite primary key (time, aircraft_id, parameter_name)
-- All API endpoints return JSON with `success` field and corresponding data or errors
-- Input validation is performed using class-validator (DTOs)
-- The project uses Nest.js architecture with separation into modules, controllers and services
-- Maintenance schedules can be marked as `is_predicted: true` for forecasted maintenance
-
-## Testing with Mock Data
-
-After running `npm run db:seed`, you can test the API with the following:
-
-- **Get aircraft info:** `GET /api/aircrafts/1` (or 2, 3, 4)
-- **Create telemetry:** `POST /api/telemetry` (use `aircraft_id: 1, 2, 3, or 4`)
-- **Get alerts:** `GET /api/alerts/1` (or 2, 3, 4)
-- **Create maintenance:** `POST /api/maintenance` (use existing `aircraft_id`)
-- **Get all schedules:** `GET /api/maintenance/schedules`
-- **Generate forecast:** `POST /api/maintenance/generate-forecast/1`
-- **Get users:** `GET /api/admin/users`
-- **Update user role:** `PATCH /api/admin/users/1/role` with `{"role": "engineer"}`
-
-**IoT Client Testing:**
-The seed script creates an aircraft with `reg_number: "AIRCRAFT-001"` for IoT client testing. You can send telemetry in IoT format:
-```json
-{
-  "aircraft_id": "AIRCRAFT-001",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "engine_temp": 90.5,
-  "vibration": 1.2
-}
-```
-
-All mock data uses aircraft IDs: 1, 2, 3, or 4.
-

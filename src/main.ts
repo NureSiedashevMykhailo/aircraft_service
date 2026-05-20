@@ -82,22 +82,33 @@ export async function handler(event: any, context: any, callback: any): Promise<
 export default handler;
 
 /**
- * Local development: run server normally
- * This code runs only when not in Vercel environment
+ * Local development and Docker: run server normally
+ * This code runs when not in Vercel environment
  */
-if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
-  async function runLocal() {
-    const app = await NestFactory.create(AppModule);
-    
-    // Configure application
-    configureApp(app);
+if (!process.env.VERCEL) {
+  async function runServer() {
+    try {
+      console.log('Starting Nest.js application...');
+      console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+      console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? '***configured***' : 'NOT SET'}`);
+      
+      const app = await NestFactory.create(AppModule);
+      
+      // Configure application
+      configureApp(app);
 
-    const port = process.env.PORT || 3000;
-    await app.listen(port);
-    console.log(`Application is running on: http://localhost:${port}/api`);
-    console.log(`Swagger documentation: http://localhost:${port}/api/docs`);
+      const port = process.env.PORT || 3000;
+      const host = process.env.HOSTNAME || '0.0.0.0';
+      
+      await app.listen(port, host);
+      console.log(`✅ Application is running on: http://${host}:${port}/api`);
+      console.log(`📚 Swagger documentation: http://${host}:${port}/api/docs`);
+    } catch (error) {
+      console.error('❌ Failed to start server:', error);
+      process.exit(1);
+    }
   }
 
-  runLocal();
+  runServer();
 }
 
